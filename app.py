@@ -15,11 +15,18 @@ api = Api(app)
 # Google Sheets API Setup
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
-# ✅ Use different paths for local vs. Render environment
-GOOGLE_CREDENTIALS_PATH = "vivid-monitor-451014-a7-0a8a581b3c3a.json"  # Local path
-
+# ✅ Automatically use the correct path
 if os.getenv("RENDER"):  # ✅ If running on Render, use the secret file
     GOOGLE_CREDENTIALS_PATH = "/var/data/vivid-monitor-451014-a7-0a8a581b3c3a.json"
+else:  # ✅ Use the local path when running locally
+    GOOGLE_CREDENTIALS_PATH = "vivid-monitor-451014-a7-0a8a581b3c3a.json"
+
+# ✅ Debugging: Print which path is being used
+print(f"[INFO] Using Google Credentials from: {GOOGLE_CREDENTIALS_PATH}")
+
+# ✅ Ensure the file exists before using it
+if not os.path.exists(GOOGLE_CREDENTIALS_PATH):
+    raise FileNotFoundError(f"Google credentials file not found at {GOOGLE_CREDENTIALS_PATH}")
 
 CREDS = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_CREDENTIALS_PATH, SCOPE)
 client = gspread.authorize(CREDS)
