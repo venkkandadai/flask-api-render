@@ -236,6 +236,11 @@ print("[INFO] Registered Routes:")
 for rule in app.url_map.iter_rules():
     print(f"{rule} -> {rule.endpoint}")
 
+# ✅ Add a simple homepage route
+@app.route("/")
+def home():
+    return jsonify({"message": "Flask API is running!"})
+
 if __name__ == "__main__":
     app.run(debug=True)
 
