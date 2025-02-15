@@ -15,13 +15,13 @@ api = Api(app)
 # Google Sheets API Setup
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
-# ✅ Automatically use the correct path
-if os.getenv("RENDER"):  # ✅ If running on Render, use the secret file
-    GOOGLE_CREDENTIALS_PATH = "/var/data/vivid-monitor-451014-a7-0a8a581b3c3a.json"
-else:  # ✅ Use the local path when running locally
+# ✅ Automatically determine credentials file location
+if os.getenv("RENDER"):  # ✅ If running on Render, use the secret file in /etc/secrets/
+    GOOGLE_CREDENTIALS_PATH = f"/etc/secrets/{os.getenv('GOOGLE_CREDENTIALS_PATH')}"
+else:  # ✅ Use the local file path when running locally
     GOOGLE_CREDENTIALS_PATH = "vivid-monitor-451014-a7-0a8a581b3c3a.json"
 
-# ✅ Debugging: Print which path is being used
+# ✅ Debugging: Print the file path being used
 print(f"[INFO] Using Google Credentials from: {GOOGLE_CREDENTIALS_PATH}")
 
 # ✅ Ensure the file exists before using it
