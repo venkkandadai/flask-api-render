@@ -132,6 +132,7 @@ class StudentScores(Resource):
         api_key = request.args.get("api_key")
         school_id = request.args.get("school_id")
         student_id = request.args.get("student_id")
+        test_id = request.args.get("test_id")  # ✅ NEW: Optional test_id parameter
 
         valid, error_message = validate_api_key_and_student(api_key, school_id, student_id)
         if not valid:
@@ -140,12 +141,13 @@ class StudentScores(Resource):
         sheets_data = get_student_scores()
         scores = []
 
-        print(f"[DEBUG] Checking for student_id: {student_id}")  # ✅ Debug print
         for sheet_name, data in sheets_data.items():
-            print(f"[DEBUG] Checking sheet: {sheet_name}")  # ✅ Print sheet being checked
             for row in data[1:]:
-                print(f"[DEBUG] Row Data: {row}")  # ✅ Print each row being checked
                 if row[1] == student_id:
+                    # ✅ If test_id is provided, only return that test's score
+                    if test_id and row[2] != test_id:
+                        continue  # Skip if the test_id does not match
+
                     scores.append({
                         "student_id": row[1],
                         "test_id": row[2],
@@ -153,7 +155,6 @@ class StudentScores(Resource):
                         "score": row[4]
                     })
 
-        print(f"[DEBUG] Final Scores Output: {scores}")  # ✅ Print final scores list
         return jsonify(scores if scores else {"error": "No scores found."})
 
 # Fetch student tests
