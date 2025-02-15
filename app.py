@@ -230,6 +230,13 @@ api.add_resource(TestScoreDetails, "/api/students/scores/details")
 api.add_resource(USMLEResults, "/api/students/usmle-results")
 
 # Run Flask App
+
+# ✅ Debugging: Print all registered routes in Render logs
+print("[INFO] Registered Routes:")
+for rule in app.url_map.iter_rules():
+    print(f"{rule} -> {rule.endpoint}")
+
 if __name__ == "__main__":
     app.run(debug=True)
+
 
