@@ -4,6 +4,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from flask_caching import Cache  # ✅ Import caching
 import threading
+import os
 
 # Initialize Flask App
 app = Flask(__name__)
@@ -13,7 +14,14 @@ api = Api(app)
 
 # Google Sheets API Setup
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-CREDS = ServiceAccountCredentials.from_json_keyfile_name("vivid-monitor-451014-a7-0a8a581b3c3a.json", SCOPE)
+
+# ✅ Use different paths for local vs. Render environment
+GOOGLE_CREDENTIALS_PATH = "vivid-monitor-451014-a7-0a8a581b3c3a.json"  # Local path
+
+if os.getenv("RENDER"):  # ✅ If running on Render, use the secret file
+    GOOGLE_CREDENTIALS_PATH = "/var/data/vivid-monitor-451014-a7-0a8a581b3c3a.json"
+
+CREDS = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_CREDENTIALS_PATH, SCOPE)
 client = gspread.authorize(CREDS)
 
 # Spreadsheet ID
