@@ -168,12 +168,15 @@ class StudentScores(Resource):
         """ Retrieves student scores with optional batch filtering for student_ids and test_ids. """
         api_key = request.args.get("api_key")
         school_id = request.args.get("school_id")
-        student_ids = request.args.get("student_ids")  # ✅ Accept multiple student IDs
-        test_ids = request.args.get("test_ids")  # ✅ Accept multiple test IDs
+        student_ids = request.args.get("student_ids")
+        test_ids = request.args.get("test_ids")
 
         # Convert comma-separated values to lists
         student_ids = student_ids.split(",") if student_ids else []
         test_ids = test_ids.split(",") if test_ids else []
+
+        print(f"[DEBUG] Requested student_ids: {student_ids}")  # ✅ Debug print
+        print(f"[DEBUG] Requested test_ids: {test_ids}")  # ✅ Debug print
 
         # ✅ Validate API key and ensure access to the requested school
         valid, error_message = validate_api_key_and_student(api_key, school_id)
@@ -182,12 +185,16 @@ class StudentScores(Resource):
 
         # Fetch cached student scores from all sheets
         sheets_data = get_student_scores()
-        scores = []
+        print(f"[DEBUG] Retrieved Sheets Data: {sheets_data}")  # ✅ Debug print
 
+        scores = []
         for sheet_name, data in sheets_data.items():
             for row in data[1:]:  # Skip header row
                 student_id = row[1]
                 test_id = row[2]
+
+                # ✅ Debug: Print each row being checked
+                print(f"[DEBUG] Checking row: {row}")
 
                 # ✅ Apply filtering conditions (ensuring correct school & batch filtering)
                 if row[0] == school_id and (not student_ids or student_id in student_ids) and (not test_ids or test_id in test_ids):
@@ -199,6 +206,7 @@ class StudentScores(Resource):
                         "score": row[4]
                     })
 
+        print(f"[DEBUG] Final Scores Output: {scores}")  # ✅ Debug print before returning
         return jsonify(scores if scores else {"error": "No scores found."})
 
 # =============================================
