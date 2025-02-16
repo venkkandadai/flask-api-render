@@ -171,42 +171,47 @@ class StudentScores(Resource):
         student_ids = request.args.get("student_ids")
         test_ids = request.args.get("test_ids")
 
-        # Convert comma-separated values to lists
-        student_ids = student_ids.split(",") if student_ids else []
-        test_ids = test_ids.split(",") if test_ids else []
+        # Convert comma-separated values to lists and ensure string comparison
+        student_ids = [str(sid.strip()) for sid in student_ids.split(",")] if student_ids else []
+        test_ids = [str(tid.strip()) for tid in test_ids.split(",")] if test_ids else []
 
-        print(f"[DEBUG] Requested student_ids: {student_ids}")  # ✅ Debug print
-        print(f"[DEBUG] Requested test_ids: {test_ids}")  # ✅ Debug print
+        print(f"[DEBUG] Requested student_ids: {student_ids}")
+        print(f"[DEBUG] Requested test_ids: {test_ids}")
 
-        # ✅ Validate API key and ensure access to the requested school
+        # Validate API key and ensure access to the requested school
         valid, error_message = validate_api_key_and_student(api_key, school_id)
         if not valid:
             return jsonify({"error": error_message})
 
         # Fetch cached student scores from all sheets
         sheets_data = get_student_scores()
-        print(f"[DEBUG] Retrieved Sheets Data: {sheets_data}")  # ✅ Debug print
+        print(f"[DEBUG] Retrieved Sheets Data: {sheets_data}")
 
         scores = []
         for sheet_name, data in sheets_data.items():
             for row in data[1:]:  # Skip header row
-                student_id = row[1]
-                test_id = row[2]
+                school_name = row[0].strip()
+                student_id = str(row[1].strip())
+                test_id = str(row[2].strip())
 
                 # ✅ Debug: Print each row being checked
                 print(f"[DEBUG] Checking row: {row}")
 
-                # ✅ Apply filtering conditions (ensuring correct school & batch filtering)
-                if row[0] == school_id and (not student_ids or student_id in student_ids) and (not test_ids or test_id in test_ids):
+                # ✅ Apply filtering conditions ensuring correct school & batch filtering
+                if (
+                    school_name == school_id and
+                    (not student_ids or student_id in student_ids) and
+                    (not test_ids or test_id in test_ids)
+                ):
                     scores.append({
-                        "school_name": row[0],  # ✅ Ensure school_name is included
+                        "school_name": school_name,
                         "student_id": student_id,
                         "test_id": test_id,
                         "test_date": row[3],
                         "score": row[4]
                     })
 
-        print(f"[DEBUG] Final Scores Output: {scores}")  # ✅ Debug print before returning
+        print(f"[DEBUG] Final Scores Output: {scores}")
         return jsonify(scores if scores else {"error": "No scores found."})
 
 # =============================================
