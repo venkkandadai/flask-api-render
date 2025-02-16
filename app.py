@@ -167,46 +167,49 @@ class StudentScores(Resource):
     def get(self):
         """ Retrieves student scores with optional batch filtering for student_ids and test_ids. """
         api_key = request.args.get("api_key")
-        school_id = request.args.get("school_id")
+        school_id = request.args.get("school_id")  # No need to normalize since it's already consistent
         student_ids = request.args.get("student_ids")
         test_ids = request.args.get("test_ids")
 
-        # Convert comma-separated values to lists and ensure string comparison
+        # Convert comma-separated values to lists (ensure they are strings)
         student_ids = [str(sid.strip()) for sid in student_ids.split(",")] if student_ids else []
         test_ids = [str(tid.strip()) for tid in test_ids.split(",")] if test_ids else []
 
+        print(f"[DEBUG] Requested school_id: {school_id}")
         print(f"[DEBUG] Requested student_ids: {student_ids}")
         print(f"[DEBUG] Requested test_ids: {test_ids}")
 
         # Validate API key and ensure access to the requested school
         valid, error_message = validate_api_key_and_student(api_key, school_id)
         if not valid:
+            print(f"[ERROR] {error_message}")
             return jsonify({"error": error_message})
 
         # Fetch cached student scores from all sheets
         sheets_data = get_student_scores()
-        print(f"[DEBUG] Retrieved Sheets Data: {sheets_data}")
+        print(f"[DEBUG] Retrieved Sheets Data: {sheets_data.keys()}")  # Print sheet names
 
         scores = []
         for sheet_name, data in sheets_data.items():
+            print(f"[DEBUG] Checking sheet: {sheet_name}, Total Rows: {len(data)}")
+            
             for row in data[1:]:  # Skip header row
-                school_name = row[0].strip()
-                student_id = str(row[1].strip())
-                test_id = str(row[2].strip())
-
-                # ✅ Debug: Print each row being checked
-                print(f"[DEBUG] Checking row: {row}")
+                dataset_school_id = row[0].strip()
+                dataset_student_id = str(row[1]).strip()  # Convert to string
+                dataset_test_id = str(row[2]).strip()  # Convert to string
+                
+                print(f"[DEBUG] Checking row: School ID={dataset_school_id}, Student ID={dataset_student_id}, Test ID={dataset_test_id}")
 
                 # ✅ Apply filtering conditions ensuring correct school & batch filtering
                 if (
-                    school_name == school_id and
-                    (not student_ids or student_id in student_ids) and
-                    (not test_ids or test_id in test_ids)
+                    dataset_school_id == school_id and  # Direct string match
+                    (not student_ids or dataset_student_id in student_ids) and
+                    (not test_ids or dataset_test_id in test_ids)
                 ):
                     scores.append({
-                        "school_name": school_name,
-                        "student_id": student_id,
-                        "test_id": test_id,
+                        "school_name": dataset_school_id,
+                        "student_id": dataset_student_id,
+                        "test_id": dataset_test_id,
                         "test_date": row[3],
                         "score": row[4]
                     })
