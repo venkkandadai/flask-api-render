@@ -225,24 +225,28 @@ class StudentTests(Resource):
         """ Retrieves test records for students, supporting batch requests. """
         api_key = request.args.get("api_key")
         school_id = request.args.get("school_id")
-        student_ids = request.args.get("student_ids")  # ✅ Now accepts multiple student IDs
+        student_ids = request.args.get("student_ids")  # ✅ Accepts multiple student IDs
 
-        # Convert comma-separated student IDs to a list
-        if student_ids:
-            student_ids = student_ids.split(",")
+        # Convert comma-separated student IDs to a list and ensure they are strings
+        student_ids = [str(sid.strip()) for sid in student_ids.split(",")] if student_ids else []
 
-        # Validate API key and student access
+        # Validate API key and access
         valid, error_message = validate_api_key_and_student(api_key, school_id, student_ids)
         if not valid:
             return jsonify({"error": error_message})
 
-        # Use StudentScores to retrieve test records
-        scores_data = StudentScores().get().get_json()
+        # ✅ Fetch student scores with proper API logic
+        scores_data = StudentScores().get().json  # Ensure we get proper JSON response
+        if not isinstance(scores_data, list):
+            return jsonify({"error": "Failed to fetch student scores."})
 
-        # ✅ Apply filtering to return only student test records
-        filtered_tests = [record for record in scores_data if "student_id" in record and (not student_ids or record["student_id"] in student_ids)]
+        # ✅ Correct filtering logic
+        filtered_tests = [
+            record for record in scores_data 
+            if "student_id" in record and str(record["student_id"]) in student_ids
+        ]
 
-        return jsonify(filtered_tests if filtered_tests else {"error": "No tests found."})
+        return jsonify(filtered_tests if filtered_tests else {"error": "No tests found for the specified students."})
 
 # ====================================================
 # 📑 FETCH DETAILED TEST SCORES (Supports Batch Mode)
