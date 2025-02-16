@@ -168,17 +168,15 @@ class StudentScores(Resource):
         """ Retrieves student scores with optional batch filtering for student_ids and test_ids. """
         api_key = request.args.get("api_key")
         school_id = request.args.get("school_id")
-        student_ids = request.args.get("student_ids")  # ✅ Now accepts multiple student IDs
-        test_ids = request.args.get("test_ids")  # ✅ Now accepts multiple test IDs
+        student_ids = request.args.get("student_ids")  # ✅ Accept multiple student IDs
+        test_ids = request.args.get("test_ids")  # ✅ Accept multiple test IDs
 
         # Convert comma-separated values to lists
-        if student_ids:
-            student_ids = student_ids.split(",")
-        if test_ids:
-            test_ids = test_ids.split(",")
+        student_ids = student_ids.split(",") if student_ids else []
+        test_ids = test_ids.split(",") if test_ids else []
 
-        # Validate API key and access to the requested students
-        valid, error_message = validate_api_key_and_student(api_key, school_id, student_ids)
+        # ✅ Validate API key and ensure access to the requested school
+        valid, error_message = validate_api_key_and_student(api_key, school_id)
         if not valid:
             return jsonify({"error": error_message})
 
@@ -191,9 +189,10 @@ class StudentScores(Resource):
                 student_id = row[1]
                 test_id = row[2]
 
-                # ✅ Apply filtering conditions
-                if (not student_ids or student_id in student_ids) and (not test_ids or test_id in test_ids):
+                # ✅ Apply filtering conditions (ensuring correct school & batch filtering)
+                if row[0] == school_id and (not student_ids or student_id in student_ids) and (not test_ids or test_id in test_ids):
                     scores.append({
+                        "school_name": row[0],  # ✅ Ensure school_name is included
                         "student_id": student_id,
                         "test_id": test_id,
                         "test_date": row[3],
