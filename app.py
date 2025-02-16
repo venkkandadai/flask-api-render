@@ -106,7 +106,14 @@ class Students(Resource):
             return jsonify({"error": error_message})
         sheet = client.open_by_key(SPREADSHEET_ID).worksheet("roster_data")
         data = sheet.get_all_values()
-        students = [{"student_id": row[1], "first_name": row[2], "last_name": row[3]} for row in data[1:] if row[0] == school_id]
+        students = [{
+    "school_name": row[0],
+    "student_id": row[1],
+    "first_name": row[2],
+    "last_name": row[3],
+    "campus": row[4] if len(row) > 4 else "N/A",
+    "med_year": row[5] if len(row) > 5 else "N/A"
+} for row in data[1:] if row[0] == school_id]
         return jsonify(students if students else {"error": "No students found."})
 
 # Fetch student scores with optimized sheet access
