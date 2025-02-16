@@ -114,7 +114,7 @@ class Students(Resource):
     def get(self):
         api_key = request.args.get("api_key")
         school_id = request.args.get("school_id")
-        student_ids = request.args.get("student_ids")  # Accept batch student IDs (optional)
+        student_ids = request.args.get("student_ids") or request.args.get("student_id")  # Support single & batch requests
 
         if student_ids:
             student_ids = student_ids.split(",")  # Convert to list
