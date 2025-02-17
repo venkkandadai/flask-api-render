@@ -316,25 +316,44 @@ class TestScoreDetails(Resource):
 def get_all_usmle_results():
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet("usmle_results")
     data = sheet.get_all_values()
+    
+    # ✅ Ensure an empty list is returned if no data is found
+    if not data or len(data) < 2:  # Header row is always there
+        return []
+
     return [{"student_id": row[1], "test_id": row[2], "test_date": row[3], "result": row[4]} for row in data[1:]]
 
 class USMLEResults(Resource):
     def get(self):
         api_key = request.args.get("api_key")
         school_id = request.args.get("school_id")
-        student_ids = request.args.get("student_ids")
+        
+        # ✅ Support both "student_id" and "student_ids" and split correctly
+        student_ids = request.args.get("student_ids") or request.args.get("student_id")
 
-        if student_ids:
-            student_ids = student_ids.split(",")
+        # ✅ Ensure it's always a list (even if empty)
+        student_ids = student_ids.split(",") if student_ids else []
+
+        # ✅ Trim whitespace from each student_id
+        student_ids = [sid.strip() for sid in student_ids]
 
         valid, error_message = validate_api_key_and_student(api_key, school_id, student_ids)
         if not valid:
             return jsonify({"error": error_message})
 
         all_results = get_all_usmle_results()
-        student_results = [result for result in all_results if result["student_id"] in student_ids]
 
-        return jsonify(student_results if student_results else {"error": "No USMLE results found."})
+        # ✅ Prevent NoneType errors
+        if all_results is None:
+            return jsonify({"error": "No USMLE results available."})
+
+        # ✅ If student_ids is empty, return all results for the school
+        student_results = [
+            result for result in all_results 
+            if not student_ids or result["student_id"] in student_ids
+        ]
+
+        return jsonify(student_results if student_results else {"error": "No USMLE results found for the specified students."})
 
 # Register all endpoints
 api.add_resource(ExamStats, "/api/exam-stats")
