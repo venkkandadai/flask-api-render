@@ -5,6 +5,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 from flask_caching import Cache  # ✅ Import caching
 import threading
 import os
+from concurrent.futures import ThreadPoolExecutor
+
 
 # ================================
 # 🚀 INITIALIZE FLASK APP & CACHE
@@ -149,17 +151,19 @@ def get_student_scores():
     """ Fetches student scores from multiple sheets and caches results. """
     sheets = ["se_scores", "cas_scores", "nsas_scores"]
     sheets_data = {}
+    lock = threading.Lock()  # ✅ Ensures thread-safe access to sheets_data
 
     def fetch_data(sheet):
-        sheets_data[sheet] = client.open_by_key(SPREADSHEET_ID).worksheet(sheet).get_all_values()
+        try:
+            data = client.open_by_key(SPREADSHEET_ID).worksheet(sheet).get_all_values()
+            with lock:  # ✅ Ensure only one thread updates the dictionary at a time
+                sheets_data[sheet] = data
+        except Exception as e:
+            print(f"[ERROR] Failed to fetch data from {sheet}: {e}")
 
-    # Use threading to fetch data from all sheets simultaneously
-    threads = [threading.Thread(target=fetch_data, args=(sheet,)) for sheet in sheets]
-
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
+    # ✅ Use ThreadPoolExecutor for efficient multi-threading
+    with ThreadPoolExecutor(max_workers=len(sheets)) as executor:
+        executor.map(fetch_data, sheets)
 
     return sheets_data
 
@@ -168,10 +172,12 @@ class StudentScores(Resource):
         """ Retrieves student scores with optional batch filtering for student_ids and test_ids. """
         api_key = request.args.get("api_key")
         school_id = request.args.get("school_id")  # No need to normalize since it's already consistent
-        student_ids = request.args.get("student_ids")
-        test_ids = request.args.get("test_ids")
 
-        # Convert comma-separated values to lists (ensure they are strings)
+        # ✅ Accepts both "student_id" and "student_ids" (single or batch requests)
+        student_ids = request.args.get("student_ids") or request.args.get("student_id")
+        test_ids = request.args.get("test_ids") or request.args.get("test_id")
+
+        # ✅ Convert comma-separated values to lists (ensure they are strings)
         student_ids = [str(sid.strip()) for sid in student_ids.split(",")] if student_ids else []
         test_ids = [str(tid.strip()) for tid in test_ids.split(",")] if test_ids else []
 
@@ -179,25 +185,25 @@ class StudentScores(Resource):
         print(f"[DEBUG] Requested student_ids: {student_ids}")
         print(f"[DEBUG] Requested test_ids: {test_ids}")
 
-        # Validate API key and ensure access to the requested school
+        # ✅ Validate API key and ensure access to the requested school
         valid, error_message = validate_api_key_and_student(api_key, school_id)
         if not valid:
             print(f"[ERROR] {error_message}")
             return jsonify({"error": error_message})
 
-        # Fetch cached student scores from all sheets
+        # ✅ Fetch cached student scores from all sheets
         sheets_data = get_student_scores()
         print(f"[DEBUG] Retrieved Sheets Data: {sheets_data.keys()}")  # Print sheet names
 
         scores = []
         for sheet_name, data in sheets_data.items():
             print(f"[DEBUG] Checking sheet: {sheet_name}, Total Rows: {len(data)}")
-            
+
             for row in data[1:]:  # Skip header row
                 dataset_school_id = row[0].strip()
                 dataset_student_id = str(row[1]).strip()  # Convert to string
                 dataset_test_id = str(row[2]).strip()  # Convert to string
-                
+
                 print(f"[DEBUG] Checking row: School ID={dataset_school_id}, Student ID={dataset_student_id}, Test ID={dataset_test_id}")
 
                 # ✅ Apply filtering conditions ensuring correct school & batch filtering
@@ -225,7 +231,7 @@ class StudentTests(Resource):
         """ Retrieves test records for students, supporting batch requests. """
         api_key = request.args.get("api_key")
         school_id = request.args.get("school_id")
-        student_ids = request.args.get("student_ids")  # ✅ Accepts multiple student IDs
+        student_ids = request.args.get("student_ids") or request.args.get("student_id")  # ✅ Allow both "student_id" and "student_ids"
 
         # Convert comma-separated student IDs to a list and ensure they are strings
         student_ids = [str(sid.strip()) for sid in student_ids.split(",")] if student_ids else []
@@ -242,7 +248,7 @@ class StudentTests(Resource):
 
         # ✅ Correct filtering logic
         filtered_tests = [
-            record for record in scores_data 
+            record for record in scores_data
             if "student_id" in record and str(record["student_id"]) in student_ids
         ]
 
@@ -258,7 +264,13 @@ def get_test_score_details():
     sheets_data = {}
 
     def fetch_data(sheet):
-        sheets_data[sheet] = client.open_by_key(SPREADSHEET_ID).worksheet(sheet).get_all_values()
+        try:
+            worksheet = client.open_by_key(SPREADSHEET_ID).worksheet(sheet)
+            data = worksheet.get_all_values()
+            sheets_data[sheet] = data if data else []  # Ensure no NoneType errors
+        except Exception as e:
+            print(f"[ERROR] Failed to fetch data from sheet {sheet}: {e}")
+            sheets_data[sheet] = []  # Prevent breaking other sheets
 
     # Use threading to fetch data from all sheets simultaneously
     threads = [threading.Thread(target=fetch_data, args=(sheet,)) for sheet in sheets]
@@ -268,15 +280,17 @@ def get_test_score_details():
     for thread in threads:
         thread.join()
 
-    return sheets_data
+    return sheets_data  # Always returns a dictionary, even if some sheets failed
 
 class TestScoreDetails(Resource):
     def get(self):
         """ Retrieves detailed test scores with optional batch filtering for student_ids and test_ids. """
         api_key = request.args.get("api_key")
         school_id = request.args.get("school_id")
-        student_ids = request.args.get("student_ids")  # ✅ Now accepts multiple student IDs
-        test_ids = request.args.get("test_ids")  # ✅ Now accepts multiple test IDs
+        
+        # ✅ Allow both "student_id" and "student_ids"
+        student_ids = request.args.get("student_ids") or request.args.get("student_id")
+        test_ids = request.args.get("test_ids") or request.args.get("test_id")
 
         # Convert comma-separated values to lists
         if student_ids:
@@ -296,12 +310,23 @@ class TestScoreDetails(Resource):
         for sheet_name, data in sheets_data.items():
             headers = data[0]
             for row in data[1:]:  # Skip header row
-                student_id = row[1]
-                test_id = row[2]
+                school_name = row[0].strip()  # Ensure spaces are removed
+                student_id = row[1].strip()
+                test_id = row[2].strip()
 
-                # ✅ Apply filtering conditions
-                if (not student_ids or student_id in student_ids) and (not test_ids or test_id in test_ids):
-                    result = {"student_id": student_id, "test_id": test_id, "test_date": row[3], "score": row[4]}
+                # ✅ Apply filtering conditions including school_name
+                if (
+                    school_name == school_id and  # Ensure school matches
+                    (not student_ids or student_id in student_ids) and
+                    (not test_ids or test_id in test_ids)
+                ):
+                    result = {
+                        "school_name": school_name,
+                        "student_id": student_id,
+                        "test_id": test_id,
+                        "test_date": row[3],
+                        "score": row[4]
+                    }
                     for i in range(5, len(row)):
                         if headers[i] and row[i]:
                             result[headers[i]] = row[i]
