@@ -380,6 +380,13 @@ class USMLEResults(Resource):
 
         return jsonify(student_results if student_results else {"error": "No USMLE results found for the specified students."})
 
+
+# Health Check Endpoint (to setup automated pings to prevent cold starts)
+
+class HealthCheck(Resource):
+    def get(self):
+        return jsonify({"status": "ok"})
+
 # Register all endpoints
 api.add_resource(ExamStats, "/api/exam-stats")
 api.add_resource(AvailableTests, "/api/tests")
@@ -388,6 +395,7 @@ api.add_resource(StudentScores, "/api/students/scores")
 api.add_resource(StudentTests, "/api/students/tests")
 api.add_resource(TestScoreDetails, "/api/students/scores/details")
 api.add_resource(USMLEResults, "/api/students/usmle-results")
+api.add_resource(HealthCheck, "/api/health")
 
 # Run Flask App
 
